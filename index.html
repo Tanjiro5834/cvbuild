@@ -3,7 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
   <title>ATS Resume Builder</title>
+
+  <!-- Apply theme before first paint to avoid a flash -->
+  <script>
+    (function () {
+      try {
+        var pref = localStorage.getItem('theme') || 'system';
+        var mql = window.matchMedia('(prefers-color-scheme: dark)');
+        var resolved = pref === 'system' ? (mql.matches ? 'dark' : 'light') : pref;
+        document.documentElement.setAttribute('data-theme', resolved);
+        document.documentElement.setAttribute('data-theme-pref', pref);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
 
   <!-- Google Fonts (only allowed external resource) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,8 +32,9 @@
 </head>
 <body>
   <div id="app"></div>
+  <div id="toasts" class="toasts" aria-live="polite" aria-atomic="true"></div>
+  <div id="modal-root"></div>
 
-  <!-- Module entry point -->
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
