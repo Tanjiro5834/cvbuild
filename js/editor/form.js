@@ -70,6 +70,7 @@ export function renderEditor(container, resume, handlers) {
     container.dataset.bound = '1';
   }
   attachTabs(container);
+  attachRichTextAll(container);
   handlers.onAfterRender && handlers.onAfterRender();
 }
 
@@ -186,6 +187,65 @@ function renderSkillEntries(section) {
     </div>`).join('');
 }
 
+/* ---------------- Entry fields per section type ---------------- */
+
+const DEFAULT_FIELDS = {
+  title: ['Title', 'Title / Role'],
+  org: ['Organization', 'Company / School / Project'],
+  location: true, dates: 'range', present: 'Ongoing',
+  desc: 'Description',
+};
+
+const FIELD_CONFIG = {
+  experience: {
+    title: ['Job title', 'Backend Developer'],
+    org: ['Company', 'Acme Corp'],
+    present: 'Currently working here',
+  },
+  education: {
+    title: ['Degree / Program', 'BS Computer Science'],
+    org: ['School', 'University name'],
+    present: 'Currently studying here',
+    desc: 'Honors / coursework (optional)',
+  },
+  projects: {
+    title: ['Project name', 'Inventory System'],
+    org: ['Role / Tech stack', 'Java, Spring Boot, MySQL'],
+    location: false,
+    present: 'Ongoing',
+  },
+  certifications: {
+    title: ['Certification', 'AWS Cloud Practitioner'],
+    org: ['Issuer', 'Amazon Web Services'],
+    location: false, dates: 'single', present: false,
+    desc: 'Details (optional)',
+  },
+  awards: {
+    title: ['Award', "Dean's Lister"],
+    org: ['Issuer', 'Institution'],
+    location: false, dates: 'single', present: false,
+    desc: 'Details (optional)',
+  },
+  languages: {
+    title: ['Language', 'English'],
+    org: ['Proficiency', 'Fluent'],
+    location: false, dates: false, present: false, desc: false,
+  },
+  volunteering: {
+    title: ['Role', 'Volunteer Tutor'],
+    org: ['Organization', 'Organization name'],
+    present: 'Currently volunteering',
+  },
+  references: {
+    title: ['Name', 'Jane Dela Cruz'],
+    org: ['Position / Company', 'Engineering Manager, Acme'],
+    location: false, dates: false, present: false,
+    desc: 'Contact details',
+  },
+};
+
+const fieldsFor = (type) => ({ ...DEFAULT_FIELDS, ...(FIELD_CONFIG[type] || {}) });
+
 /* Summary line for collapsed entry header */
 function entrySummary(section, entry, settings) {
   if (section.type === 'skills' || section.type === 'profile') return '';
@@ -238,6 +298,7 @@ function renderEntry(entry, section, settings) {
   const collapsed = entry._collapsed ?? section.entries.length > 1;
   const summary = entrySummary(section, entry, settings) || '';
   const summaryIsEmpty = !summary;
+  const f = fieldsFor(section.type);
 
   return `
     <article class="entry-card ${collapsed ? 'collapsed' : ''}"
@@ -264,47 +325,57 @@ function renderEntry(entry, section, settings) {
       <div class="entry-body">
         <div class="entry-grid">
           <div class="field-cell">
-            <label class="field-label" for="e-${eid}-title">Title</label>
+            <label class="field-label" for="e-${eid}-title">${f.title[0]}</label>
             <input id="e-${eid}-title" data-entry-field="title" data-section="${sid}" data-entry="${eid}"
-                   value="${escapeHTML(entry.title)}" placeholder="Job title / Role" />
+                   value="${escapeHTML(entry.title)}" placeholder="${escapeHTML(f.title[1])}" />
           </div>
           <div class="field-cell">
-            <label class="field-label" for="e-${eid}-org">Organization</label>
+            <label class="field-label" for="e-${eid}-org">${f.org[0]}</label>
             <input id="e-${eid}-org" data-entry-field="organization" data-section="${sid}" data-entry="${eid}"
-                   value="${escapeHTML(entry.organization)}" placeholder="Company / School / Project" />
+                   value="${escapeHTML(entry.organization)}" placeholder="${escapeHTML(f.org[1])}" />
           </div>
 
+          ${f.location ? `
           <div class="field-cell field-full">
             <label class="field-label" for="e-${eid}-loc">Location</label>
             <input id="e-${eid}-loc" data-entry-field="location" data-section="${sid}" data-entry="${eid}"
                    value="${escapeHTML(entry.location)}" placeholder="City, Country or Remote" />
-          </div>
+          </div>` : ''}
 
+          ${f.dates === 'range' ? `
           <div class="field-cell">
             <label class="field-label" for="e-${eid}-start-month">Start date</label>
             ${dateSelectHTML({ field: 'start', sectionId: sid, entryId: eid, value: entry.start, disabled: false, ariaLabel: 'Start date' })}
           </div>
           <div class="field-cell">
             <label class="field-label" for="e-${eid}-end-month">End date</label>
-            ${dateSelectHTML({ field: 'end', sectionId: sid, entryId: eid, value: entry.end, disabled: entry.present, ariaLabel: 'End date' })}
-          </div>
+            ${dateSelectHTML({ field: 'end', sectionId: sid, entryId: eid, value: entry.end, disabled: f.present && entry.present, ariaLabel: 'End date' })}
+          </div>` : ''}
 
+          ${f.dates === 'single' ? `
+          <div class="field-cell">
+            <label class="field-label" for="e-${eid}-start-month">Date</label>
+            ${dateSelectHTML({ field: 'start', sectionId: sid, entryId: eid, value: entry.start, disabled: false, ariaLabel: 'Date' })}
+          </div>` : ''}
+
+          ${f.dates === 'range' && f.present ? `
           <div class="field-cell field-full">
             <label class="switch">
               <input type="checkbox" data-entry-present="${sid}:${eid}" ${entry.present ? 'checked' : ''} />
               <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-              <span class="switch-label">Currently working here</span>
+              <span class="switch-label">${f.present}</span>
             </label>
-          </div>
+          </div>` : ''}
 
+          ${f.desc ? `
           <div class="field-cell field-full">
-            <label class="field-label">Description</label>
+            <label class="field-label">${f.desc}</label>
             <div class="rt-wrap">
               <div class="editable" contenteditable="true"
                    data-entry-desc="${sid}:${eid}"
-                   aria-label="Description">${sanitizeHTML(entry.description)}</div>
+                   aria-label="${f.desc}">${sanitizeHTML(entry.description)}</div>
             </div>
-          </div>
+          </div>` : ''}
         </div>
       </div>
     </article>`;
@@ -631,7 +702,10 @@ function attachContentHandlers(container) {
     if (card) toggleEntry(container, card);
   });
 
-  // Rich text
+}
+
+/* Per-element: must run on every render (elements are recreated) */
+function attachRichTextAll(container) {
   container.querySelectorAll('[data-entry-desc]').forEach(el => {
     const [sid, eid] = el.dataset.entryDesc.split(':');
     attachRichText(el, (html) => {
