@@ -71,10 +71,13 @@ function fetchFontFiles(font) {
  * @returns {Promise<string>} the jsPDF font family name to use
  */
 async function registerFont(doc, font) {
-  const files = await fetchFontFiles(ALIASES[font] || font);
+  const source = ALIASES[font] || font;   // e.g. 'Times New Roman' → 'Tinos'
+  const files = await fetchFontFiles(source);
   if (!files.normal) return builtinFont(font);
 
-  const fam = font.replace(/\s+/g, '');
+  // Name the PDF font after the file we embed, never 'TimesNewRoman'/'Arial':
+  // PDF viewers treat those names as standard-14 aliases and swap in their own font.
+  const fam = source.replace(/\s+/g, '');
   const pick = {
     normal: files.normal,
     bold: files.bold || files.normal,
