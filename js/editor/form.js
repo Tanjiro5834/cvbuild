@@ -64,8 +64,11 @@ export function renderEditor(container, resume, handlers) {
     </div>
   `;
 
-  attachContentHandlers(container);
-  attachCustomizeHandlers(container);
+  if (!container.dataset.bound) {
+    attachContentHandlers(container);
+    attachCustomizeHandlers(container);
+    container.dataset.bound = '1';
+  }
   attachTabs(container);
   handlers.onAfterRender && handlers.onAfterRender();
 }
@@ -231,7 +234,8 @@ function dateSelectHTML({ field, sectionId, entryId, value, disabled, ariaLabel 
 function renderEntry(entry, section, settings) {
   const sid = section.id;
   const eid = entry.id;
-  const collapsed = !!entry._collapsed;
+  // Default: collapsed when the section has several entries (keeps old resumes short)
+  const collapsed = entry._collapsed ?? section.entries.length > 1;
   const summary = entrySummary(section, entry, settings) || '';
   const summaryIsEmpty = !summary;
 
@@ -409,6 +413,26 @@ function renderCustomize(resume) {
 
 /* ---------------- Handlers ---------------- */
 
+/* Accordion: only one entry open per section */
+function toggleEntry(container, card) {
+  const sid = card.dataset.entryParent;
+  const opening = card.classList.contains('collapsed');
+  const siblings = opening
+    ? [...container.querySelectorAll(`.entry-card[data-entry-parent="${sid}"]`)]
+    : [card];
+
+  siblings.forEach(c => c.classList.toggle('collapsed', c !== card || !opening));
+
+  mutate(r => {
+    const s = r.sections.find(x => x.id === sid);
+    if (!s) return;
+    const ids = new Set(siblings.map(c => c.dataset.entryId));
+    s.entries.forEach(en => {
+      if (ids.has(en.id)) en._collapsed = !(opening && en.id === card.dataset.entryId);
+    });
+  }, { pushHistory: false });
+}
+
 function attachTabs(container) {
   const tabs = container.querySelector('[data-tabs]');
   if (!tabs) return;
@@ -547,7 +571,9 @@ function attachContentHandlers(container) {
       const sid = btn.dataset.section;
       mutate(r => {
         const s = r.sections.find(x => x.id === sid);
-        if (s) s.entries.push(emptyEntry(s.type));
+        if (!s) return;
+        s.entries.forEach(en => { en._collapsed = true; }); // accordion: close others
+        s.entries.push({ ...emptyEntry(s.type), _collapsed: false });
       });
       return;
     }
@@ -592,15 +618,7 @@ function attachContentHandlers(container) {
 
     if (action === 'toggle-collapse-entry') {
       const card = btn.closest('.entry-card');
-      if (!card) return;
-      const collapsed = card.classList.toggle('collapsed');
-      const sid = card.dataset.entryParent;
-      const eid = card.dataset.entryId;
-      mutate(r => {
-        const s = r.sections.find(x => x.id === sid);
-        const en = s && s.entries.find(x => x.id === eid);
-        if (en) en._collapsed = collapsed;
-      }, { pushHistory: false });
+      if (card) toggleEntry(container, card);
       return;
     }
   });
@@ -608,18 +626,9 @@ function attachContentHandlers(container) {
   // Click on the whole entry header toggles collapse (excluding interactive controls)
   container.addEventListener('click', (e) => {
     const head = e.target.closest('[data-entry-header]');
-    if (!head) return;
-    if (e.target.closest('button, input, select, a')) return;
+    if (!head || e.target.closest('button, input, select, a')) return;
     const card = head.closest('.entry-card');
-    if (!card) return;
-    const collapsed = card.classList.toggle('collapsed');
-    const sid = card.dataset.entryParent;
-    const eid = card.dataset.entryId;
-    mutate(r => {
-      const s = r.sections.find(x => x.id === sid);
-      const en = s && s.entries.find(x => x.id === eid);
-      if (en) en._collapsed = collapsed;
-    }, { pushHistory: false });
+    if (card) toggleEntry(container, card);
   });
 
   // Rich text
