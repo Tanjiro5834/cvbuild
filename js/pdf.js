@@ -24,11 +24,69 @@ function loadJsPDF() {
   return jsPDFPromise;
 }
 
-/* Built-in PDF fonts only (no embedding): map the chosen web font to the closest family */
-function pdfFont(font) {
+/* Fallback when a font can't be embedded (offline, or proprietary fonts like Arial) */
+function builtinFont(font) {
   if (SERIF.includes(font)) return 'times';
   if (MONO.includes(font)) return 'courier';
   return 'helvetica';
+}
+
+/*
+ * Proprietary system fonts can't be downloaded/embedded, and non-embedded PDF
+ * built-ins (Times/Helvetica) get swapped by the viewer (Chrome/Edge use Foxit fonts).
+ * Embed open, metric-compatible clones instead: same widths → same line breaks.
+ */
+const ALIASES = { 'Times New Roman': 'Tinos', 'Arial': 'Arimo', 'Georgia': 'Gelasio' };
+
+/* Google Fonts as static TTFs from Fontsource's CDN (jsPDF needs TTF, not woff2) */
+const FONTSOURCE = 'https://cdn.jsdelivr.net/fontsource/fonts';
+const STYLES = { normal: '400-normal', bold: '700-normal', italic: '400-italic', bolditalic: '700-italic' };
+const fontCache = new Map(); // font name → Promise<{style: base64|null}>
+
+const toBase64 = (buf) => {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+};
+
+function fetchFontFiles(font) {
+  if (!fontCache.has(font)) {
+    const id = font.toLowerCase().replace(/\s+/g, '-');   // "Source Sans 3" → "source-sans-3"
+    const get = (v) => fetch(`${FONTSOURCE}/${id}@latest/latin-${v}.ttf`)
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .then((b) => (b ? toBase64(b) : null))
+      .catch(() => null);
+    const p = Promise.all(Object.entries(STYLES).map(async ([k, v]) => [k, await get(v)]))
+      .then(Object.fromEntries);
+    fontCache.set(font, p);
+    p.then((f) => { if (!f.normal) fontCache.delete(font); }); // don't cache failures
+  }
+  return fontCache.get(font);
+}
+
+/**
+ * Register the selected font with jsPDF. Missing styles fall back
+ * (bolditalic → bold → normal, italic → normal) so every style name resolves.
+ * @returns {Promise<string>} the jsPDF font family name to use
+ */
+async function registerFont(doc, font) {
+  const files = await fetchFontFiles(ALIASES[font] || font);
+  if (!files.normal) return builtinFont(font);
+
+  const fam = font.replace(/\s+/g, '');
+  const pick = {
+    normal: files.normal,
+    bold: files.bold || files.normal,
+    italic: files.italic || files.normal,
+    bolditalic: files.bolditalic || files.bold || files.italic || files.normal,
+  };
+  for (const [style, b64] of Object.entries(pick)) {
+    const file = `${fam}-${style}.ttf`;
+    doc.addFileToVFS(file, b64);
+    doc.addFont(file, fam, style);
+  }
+  return fam;
 }
 
 const normalizeUrl = (u) =>
@@ -73,7 +131,7 @@ export async function downloadPDF(resume, filename) {
   const H = doc.internal.pageSize.getHeight();
   const M = (MARGINS_MM[s.margins] || 16) * MM;
   const CW = W - 2 * M;               // content width
-  const FONT = pdfFont(s.font);
+  const FONT = await registerFont(doc, s.font);
   const BASE = Number(s.baseSize) || 10.5;
   const LH = Number(s.lineHeight) || 1.4;
   const GAP = (Number(s.sectionSpacing) || 14) * 0.75;
