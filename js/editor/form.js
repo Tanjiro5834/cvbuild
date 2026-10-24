@@ -1,9 +1,12 @@
 /**
- * @file Left-side editor form rendering (rewritten markup for the new UI).
- * Functionality identical to the previous version; only the DOM structure
- * and class names were updated to match the new design.
+ * @file Left-side editor form rendering.
+ * Rewritten entry form: labeled fields, CSS-Grid rows, Month/Year selects,
+ * toggle switch for "Present", clickable collapsed header with summary.
  */
-import { escapeHTML, sanitizeHTML } from '../utils.js';
+import {
+  escapeHTML, sanitizeHTML, dateToParts, partsToDate, yearOptions,
+  formatDate, MONTHS,
+} from '../utils.js';
 import {
   mutate, emptyEntry, emptySection, BUILTIN_SECTIONS, DEFAULT_SETTINGS
 } from '../store.js';
@@ -51,7 +54,7 @@ export function renderEditor(container, resume, handlers) {
       <div class="sections-list" data-sections-list>
         ${resume.sections.length === 0
           ? `<div class="empty-sections">No sections yet. Add one below.</div>`
-          : resume.sections.map(s => renderSection(s)).join('')}
+          : resume.sections.map(s => renderSection(s, resume.settings)).join('')}
       </div>
       ${renderAddSection()}
     </div>
@@ -88,8 +91,14 @@ function renderPersonal(resume) {
         <div class="custom-links" data-custom-links>
           ${p.customLinks.map((c, i) => `
             <div class="grid-2 link-row" data-link-idx="${i}">
-              <input data-personal="customLinks.${i}.label" value="${escapeHTML(c.label)}" placeholder="Label" aria-label="Custom link label" />
-              <input data-personal="customLinks.${i}.url" value="${escapeHTML(c.url)}" placeholder="https://…" aria-label="Custom link URL" />
+              <label class="field">
+                <span class="field-label">Label</span>
+                <input data-personal="customLinks.${i}.label" value="${escapeHTML(c.label)}" placeholder="e.g. Portfolio" />
+              </label>
+              <label class="field">
+                <span class="field-label">URL</span>
+                <input data-personal="customLinks.${i}.url" value="${escapeHTML(c.url)}" placeholder="https://…" />
+              </label>
             </div>`).join('')}
         </div>` : ''}
       <button type="button" class="btn btn-secondary btn-sm" data-action="add-custom-link">
@@ -99,23 +108,16 @@ function renderPersonal(resume) {
 }
 
 function field(key, label, value, type = 'text') {
-  return `<label class="field">
+  const id = `field-${key}`;
+  return `<label class="field" for="${id}">
     <span class="field-label">${label}</span>
-    <input type="${type}" data-personal="${key}" value="${escapeHTML(value)}" placeholder="${label}" aria-label="${label}" />
+    <input id="${id}" type="${type}" data-personal="${key}" value="${escapeHTML(value)}" placeholder="${label}" />
   </label>`;
 }
 
-/* ---------------- Sections ---------------- */
+/* ---------------- Section ---------------- */
 
-function entrySummary(section, entry) {
-  if (section.type === 'skills' || section.type === 'profile') return '';
-  const bits = [entry.title, entry.organization].filter(Boolean);
-  const dates = [entry.start, entry.present ? 'Present' : entry.end].filter(Boolean).join(' – ');
-  if (!bits.length && !dates) return '';
-  return `<span class="entry-summary">${escapeHTML(bits.join(' · '))}${dates ? ` <em>${escapeHTML(dates)}</em>` : ''}</span>`;
-}
-
-function renderSection(section) {
+function renderSection(section, settings) {
   const isSkill = section.type === 'skills';
   const isProfile = section.type === 'profile';
   const hidden = section.hidden;
@@ -143,7 +145,7 @@ function renderSection(section) {
             ? renderSkillEntries(section)
             : (section.entries.length === 0
                 ? `<div class="empty-entries">Add your first ${entryLabel}.</div>`
-                : section.entries.map(e => renderEntry(e, section)).join(''))}
+                : section.entries.map(e => renderEntry(e, section, settings)).join(''))}
         <button type="button" class="btn btn-secondary btn-sm add-entry" data-action="add-entry" data-section="${section.id}">
           ${ICONS.plus}<span>Add ${entryLabel}</span>
         </button>
@@ -181,48 +183,124 @@ function renderSkillEntries(section) {
     </div>`).join('');
 }
 
-function renderEntry(entry, section) {
-  const sid = section.id;
-  const collapsed = entry._collapsed;
+/* Summary line for collapsed entry header */
+function entrySummary(section, entry, settings) {
+  if (section.type === 'skills' || section.type === 'profile') return '';
+  const title = entry.title || '';
+  const org = entry.organization || '';
+  const start = entry.start ? formatDate(entry.start, settings.dateFormat || 'MMM YYYY') : '';
+  const end = entry.present
+    ? 'Present'
+    : entry.end ? formatDate(entry.end, settings.dateFormat || 'MMM YYYY') : '';
+  const dates = start && end ? `${start} – ${end}` : start || end;
+  const bits = [title, org, dates].filter(Boolean);
+  return bits.join(' · ');
+}
+
+function dateSelectHTML({ field, sectionId, entryId, value, disabled, ariaLabel }) {
+  const { month, year } = dateToParts(value);
+  const years = yearOptions();
+  const monthOpts = [
+    `<option value="">Month</option>`,
+    ...MONTHS.map((m, i) => {
+      const v = String(i + 1).padStart(2, '0');
+      return `<option value="${v}" ${month === v ? 'selected' : ''}>${m}</option>`;
+    }),
+  ].join('');
+  const yearOpts = [
+    `<option value="">Year</option>`,
+    ...years.map(y => `<option value="${y}" ${year === y ? 'selected' : ''}>${y}</option>`),
+  ].join('');
   return `
-    <article class="entry-card ${collapsed ? 'collapsed' : ''}" data-entry-id="${entry.id}" data-entry-parent="${sid}"
-         draggable="true" data-drag-type="entry" data-drag-parent="${sid}">
-      <header class="entry-head">
+    <div class="date-split">
+      <select class="date-month"
+              data-date-month
+              data-entry-field="${field}"
+              data-section="${sectionId}" data-entry="${entryId}"
+              aria-label="${ariaLabel} — month"
+              ${disabled ? 'disabled' : ''}>${monthOpts}</select>
+      <select class="date-year"
+              data-date-year
+              data-entry-field="${field}"
+              data-section="${sectionId}" data-entry="${entryId}"
+              aria-label="${ariaLabel} — year"
+              ${disabled ? 'disabled' : ''}>${yearOpts}</select>
+    </div>`;
+}
+
+function renderEntry(entry, section, settings) {
+  const sid = section.id;
+  const eid = entry.id;
+  const collapsed = !!entry._collapsed;
+  const summary = entrySummary(section, entry, settings) || '';
+  const summaryIsEmpty = !summary;
+
+  return `
+    <article class="entry-card ${collapsed ? 'collapsed' : ''}"
+             data-entry-id="${eid}" data-entry-parent="${sid}"
+             draggable="true" data-drag-type="entry" data-drag-parent="${sid}">
+      <header class="entry-head" data-entry-header>
         <span class="drag-handle" aria-hidden="true" title="Drag to reorder">${ICONS.drag}</span>
-        ${entrySummary(section, entry)}
-        <button type="button" class="icon-btn ${entry.hidden ? 'muted' : ''}" data-action="toggle-entry" data-section="${sid}" data-entry="${entry.id}" aria-label="${entry.hidden ? 'Show' : 'Hide'} entry">
+        <button type="button" class="entry-summary-btn" data-action="toggle-collapse-entry" data-section="${sid}" data-entry="${eid}" aria-label="Toggle entry details">
+          ${summaryIsEmpty
+            ? `<span class="entry-summary muted">Untitled entry</span>`
+            : `<span class="entry-summary">${escapeHTML(summary)}</span>`}
+        </button>
+        <button type="button" class="icon-btn ${entry.hidden ? 'muted' : ''}" data-action="toggle-entry" data-section="${sid}" data-entry="${eid}" aria-label="${entry.hidden ? 'Show' : 'Hide'} entry">
           ${entry.hidden ? ICONS.eyeOff : ICONS.eye}
         </button>
-        <button type="button" class="icon-btn danger" data-action="delete-entry" data-section="${sid}" data-entry="${entry.id}" aria-label="Delete entry">
+        <button type="button" class="icon-btn danger" data-action="delete-entry" data-section="${sid}" data-entry="${eid}" aria-label="Delete entry">
           ${ICONS.trash}
         </button>
-        <button type="button" class="icon-btn" data-action="toggle-collapse-entry" data-section="${sid}" data-entry="${entry.id}" aria-label="Collapse entry">
+        <button type="button" class="icon-btn" data-action="toggle-collapse-entry" data-section="${sid}" data-entry="${eid}" aria-label="Collapse entry">
           ${ICONS.chevron}
         </button>
       </header>
+
       <div class="entry-body">
-        <div class="grid-2">
-          <input data-entry-field="title" data-section="${sid}" data-entry="${entry.id}"
-                 value="${escapeHTML(entry.title)}" placeholder="Title / Role" aria-label="Title" />
-          <input data-entry-field="organization" data-section="${sid}" data-entry="${entry.id}"
-                 value="${escapeHTML(entry.organization)}" placeholder="Organization" aria-label="Organization" />
-          <input data-entry-field="location" data-section="${sid}" data-entry="${entry.id}"
-                 value="${escapeHTML(entry.location)}" placeholder="Location" aria-label="Location" />
-          <div class="date-row">
-            <input type="month" data-entry-field="start" data-section="${sid}" data-entry="${entry.id}"
-                   value="${escapeHTML(entry.start)}" aria-label="Start date" />
-            <input type="month" data-entry-field="end" data-section="${sid}" data-entry="${entry.id}"
-                   value="${escapeHTML(entry.end)}" ${entry.present ? 'disabled' : ''} aria-label="End date" />
-            <label class="toggle small">
-              <input type="checkbox" data-entry-present="${sid}:${entry.id}" ${entry.present ? 'checked' : ''} />
-              <span>Present</span>
+        <div class="entry-grid">
+          <div class="field-cell">
+            <label class="field-label" for="e-${eid}-title">Title</label>
+            <input id="e-${eid}-title" data-entry-field="title" data-section="${sid}" data-entry="${eid}"
+                   value="${escapeHTML(entry.title)}" placeholder="Job title / Role" />
+          </div>
+          <div class="field-cell">
+            <label class="field-label" for="e-${eid}-org">Organization</label>
+            <input id="e-${eid}-org" data-entry-field="organization" data-section="${sid}" data-entry="${eid}"
+                   value="${escapeHTML(entry.organization)}" placeholder="Company / School / Project" />
+          </div>
+
+          <div class="field-cell field-full">
+            <label class="field-label" for="e-${eid}-loc">Location</label>
+            <input id="e-${eid}-loc" data-entry-field="location" data-section="${sid}" data-entry="${eid}"
+                   value="${escapeHTML(entry.location)}" placeholder="City, Country or Remote" />
+          </div>
+
+          <div class="field-cell">
+            <label class="field-label" for="e-${eid}-start-month">Start date</label>
+            ${dateSelectHTML({ field: 'start', sectionId: sid, entryId: eid, value: entry.start, disabled: false, ariaLabel: 'Start date' })}
+          </div>
+          <div class="field-cell">
+            <label class="field-label" for="e-${eid}-end-month">End date</label>
+            ${dateSelectHTML({ field: 'end', sectionId: sid, entryId: eid, value: entry.end, disabled: entry.present, ariaLabel: 'End date' })}
+          </div>
+
+          <div class="field-cell field-full">
+            <label class="switch">
+              <input type="checkbox" data-entry-present="${sid}:${eid}" ${entry.present ? 'checked' : ''} />
+              <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+              <span class="switch-label">Currently working here</span>
             </label>
           </div>
-        </div>
-        <div class="rt-wrap">
-          <div class="editable" contenteditable="true"
-               data-entry-desc="${sid}:${entry.id}"
-               aria-label="Description">${sanitizeHTML(entry.description)}</div>
+
+          <div class="field-cell field-full">
+            <label class="field-label">Description</label>
+            <div class="rt-wrap">
+              <div class="editable" contenteditable="true"
+                   data-entry-desc="${sid}:${eid}"
+                   aria-label="Description">${sanitizeHTML(entry.description)}</div>
+            </div>
+          </div>
         </div>
       </div>
     </article>`;
@@ -351,7 +429,7 @@ function attachTabs(container) {
 }
 
 function attachContentHandlers(container) {
-  // Text / input edits (delegated)
+  // Input edits (delegated)
   container.addEventListener('input', (e) => {
     const inp = e.target.closest('[data-personal]');
     if (inp) {
@@ -364,7 +442,7 @@ function attachContentHandlers(container) {
       return;
     }
     const et = e.target.closest('[data-entry-field]');
-    if (et) {
+    if (et && et.tagName === 'INPUT') {
       const { section, entry } = et.dataset;
       const field = et.dataset.entryField;
       mutate(r => {
@@ -384,8 +462,30 @@ function attachContentHandlers(container) {
     }
   });
 
-  // Change handlers
+  // Selects (date parts + present checkbox)
   container.addEventListener('change', (e) => {
+    // Date part selects
+    const monthSel = e.target.closest('[data-date-month]');
+    const yearSel = e.target.closest('[data-date-year]');
+    if (monthSel || yearSel) {
+      const sel = monthSel || yearSel;
+      const { section, entry } = sel.dataset;
+      const field = sel.dataset.entryField; // 'start' | 'end'
+      const card = sel.closest('.entry-card');
+      const monthInput = card.querySelector(`[data-date-month][data-entry-field="${field}"]`);
+      const yearInput = card.querySelector(`[data-date-year][data-entry-field="${field}"]`);
+      const month = monthInput ? monthInput.value : '';
+      const year = yearInput ? yearInput.value : '';
+      const stored = partsToDate(month, year);
+      mutate(r => {
+        const s = r.sections.find(x => x.id === section);
+        const en = s && s.entries.find(x => x.id === entry);
+        if (en) en[field] = stored;
+      });
+      return;
+    }
+
+    // Present toggle
     const ep = e.target.closest('[data-entry-present]');
     if (ep) {
       const [sid, eid] = ep.dataset.entryPresent.split(':');
@@ -397,6 +497,7 @@ function attachContentHandlers(container) {
           if (ep.checked) en.end = '';
         }
       });
+      return;
     }
   });
 
@@ -427,9 +528,7 @@ function attachContentHandlers(container) {
     }
 
     if (action === 'add-custom-link') {
-      mutate(r => {
-        r.personal.customLinks.push({ label: '', url: '' });
-      });
+      mutate(r => { r.personal.customLinks.push({ label: '', url: '' }); });
       return;
     }
 
@@ -504,6 +603,23 @@ function attachContentHandlers(container) {
       }, { pushHistory: false });
       return;
     }
+  });
+
+  // Click on the whole entry header toggles collapse (excluding interactive controls)
+  container.addEventListener('click', (e) => {
+    const head = e.target.closest('[data-entry-header]');
+    if (!head) return;
+    if (e.target.closest('button, input, select, a')) return;
+    const card = head.closest('.entry-card');
+    if (!card) return;
+    const collapsed = card.classList.toggle('collapsed');
+    const sid = card.dataset.entryParent;
+    const eid = card.dataset.entryId;
+    mutate(r => {
+      const s = r.sections.find(x => x.id === sid);
+      const en = s && s.entries.find(x => x.id === eid);
+      if (en) en._collapsed = collapsed;
+    }, { pushHistory: false });
   });
 
   // Rich text

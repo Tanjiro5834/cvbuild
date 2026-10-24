@@ -55,14 +55,12 @@ export function sanitizeHTML(html) {
     for (const child of children) {
       if (child.nodeType === Node.ELEMENT_NODE) {
         if (!allowedTags.has(child.tagName)) {
-          // unwrap disallowed tag: replace with its children
           const frag = document.createDocumentFragment();
           while (child.firstChild) frag.appendChild(child.firstChild);
           child.replaceWith(frag);
           walk(node);
           continue;
         }
-        // strip all attributes except href on <a>
         for (const attr of [...child.attributes]) {
           if (child.tagName === 'A' && attr.name === 'href') {
             const val = attr.value.trim().toLowerCase();
@@ -140,4 +138,43 @@ export function downloadBlob(blob, filename) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ---------------- Split date helpers ---------------- */
+
+/** Parsed date parts for the split Month/Year selects. */
+export const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+/**
+ * Split a stored date string ("YYYY-MM" or "YYYY") into parts.
+ * @param {string} dateStr
+ * @returns {{month: string, year: string}}
+ */
+export function dateToParts(dateStr) {
+  if (!dateStr) return { month: '', year: '' };
+  const [year = '', month = ''] = String(dateStr).split('-');
+  return { month, year };
+}
+
+/**
+ * Join month/year parts back into a stored "YYYY-MM" string.
+ * If month is empty but year is present, stores "YYYY".
+ * @param {string} month
+ * @param {string} year
+ * @returns {string}
+ */
+export function partsToDate(month, year) {
+  const y = String(year || '').trim();
+  const m = String(month || '').trim();
+  if (!y) return '';
+  if (!m) return y;
+  return `${y}-${m.padStart(2, '0')}`;
+}
+
+/** Return the list of years for the date selects (current+5 down to 1970). */
+export function yearOptions() {
+  const now = new Date().getFullYear();
+  const years = [];
+  for (let y = now + 5; y >= 1970; y--) years.push(String(y));
+  return years;
 }
