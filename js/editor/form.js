@@ -150,9 +150,18 @@ function renderSection(section, settings) {
             : (section.entries.length === 0
                 ? `<div class="empty-entries">Add your first ${entryLabel}.</div>`
                 : section.entries.map(e => renderEntry(e, section, settings)).join(''))}
+        ${isSkill ? `
+        <div class="skill-add-row">
+          <button type="button" class="btn btn-secondary btn-sm add-entry" data-action="add-entry" data-kind="group" data-section="${section.id}">
+            ${ICONS.plus}<span>Add category</span>
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm add-entry" data-action="add-entry" data-section="${section.id}">
+            ${ICONS.plus}<span>Add skill</span>
+          </button>
+        </div>` : `
         <button type="button" class="btn btn-secondary btn-sm add-entry" data-action="add-entry" data-section="${section.id}">
           ${ICONS.plus}<span>Add ${entryLabel}</span>
-        </button>
+        </button>`}
       </div>
     </article>`;
 }
@@ -170,21 +179,44 @@ function renderProfileEntry(section) {
 }
 
 function renderSkillEntries(section) {
-  return section.entries.map(entry => `
-    <div class="entry-card skill-entry" data-entry-id="${entry.id}" data-entry-parent="${section.id}"
-         draggable="true" data-drag-type="entry" data-drag-parent="${section.id}">
+  return section.entries.map(entry => {
+    const isGroup = 'category' in entry;
+    const rowAttrs = `data-entry-id="${entry.id}" data-entry-parent="${section.id}"
+         draggable="true" data-drag-type="entry" data-drag-parent="${section.id}"`;
+    const actions = `
+        <button type="button" class="icon-btn ${entry.hidden ? 'muted' : ''}" data-action="toggle-entry" data-section="${section.id}" data-entry="${entry.id}" aria-label="${entry.hidden ? 'Show' : 'Hide'}">
+          ${entry.hidden ? ICONS.eyeOff : ICONS.eye}
+        </button>
+        <button type="button" class="icon-btn danger" data-action="delete-entry" data-section="${section.id}" data-entry="${entry.id}" aria-label="Delete">
+          ${ICONS.trash}
+        </button>`;
+
+    if (isGroup) {
+      return `
+    <div class="entry-card skill-entry skill-group-card" ${rowAttrs}>
+      <div class="entry-head">
+        <span class="drag-handle" aria-hidden="true">${ICONS.drag}</span>
+        <input class="skill-cat-input" data-entry-field="category" data-section="${section.id}" data-entry="${entry.id}"
+               value="${escapeHTML(entry.category)}" placeholder="Category (e.g. Backend)" aria-label="Skill category" />
+        ${actions}
+      </div>
+      <div class="skill-group-body">
+        <input data-entry-field="title" data-section="${section.id}" data-entry="${entry.id}"
+               value="${escapeHTML(entry.title)}" placeholder="Java, Spring Boot, REST APIs" aria-label="Skills, comma separated" />
+      </div>
+    </div>`;
+    }
+
+    return `
+    <div class="entry-card skill-entry" ${rowAttrs}>
       <div class="entry-head">
         <span class="drag-handle" aria-hidden="true">${ICONS.drag}</span>
         <input data-entry-field="title" data-section="${section.id}" data-entry="${entry.id}"
                value="${escapeHTML(entry.title)}" placeholder="Skill (e.g. JavaScript)" aria-label="Skill" />
-        <button type="button" class="icon-btn ${entry.hidden ? 'muted' : ''}" data-action="toggle-entry" data-section="${section.id}" data-entry="${entry.id}" aria-label="${entry.hidden ? 'Show' : 'Hide'} skill">
-          ${entry.hidden ? ICONS.eyeOff : ICONS.eye}
-        </button>
-        <button type="button" class="icon-btn danger" data-action="delete-entry" data-section="${section.id}" data-entry="${entry.id}" aria-label="Delete skill">
-          ${ICONS.trash}
-        </button>
+        ${actions}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 /* ---------------- Entry fields per section type ---------------- */
@@ -644,7 +676,9 @@ function attachContentHandlers(container) {
         const s = r.sections.find(x => x.id === sid);
         if (!s) return;
         s.entries.forEach(en => { en._collapsed = true; }); // accordion: close others
-        s.entries.push({ ...emptyEntry(s.type), _collapsed: false });
+        const entry = { ...emptyEntry(s.type), _collapsed: false };
+        if (btn.dataset.kind === 'group') entry.category = '';
+        s.entries.push(entry);
       });
       return;
     }

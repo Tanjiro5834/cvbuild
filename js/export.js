@@ -36,7 +36,7 @@ export function exportTXT(resume) {
     lines.push(s.title.toUpperCase());
     lines.push('-'.repeat(Math.min(s.title.length + 4, 40)));
     for (const e of entries) {
-      const head = [e.title, e.organization, e.location].filter(Boolean).join(' — ');
+      const head = [e.category ? `${e.category}: ${e.title}` : e.title, e.organization, e.location].filter(Boolean).join(' — ');
       if (head) lines.push(head);
       const dates = [e.start, e.present ? 'Present' : e.end].filter(Boolean).join(' – ');
       if (dates) lines.push(dates);

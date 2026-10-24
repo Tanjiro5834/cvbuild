@@ -2,7 +2,7 @@
  * Left-aligned layout: header aligned left, contact info on one line.
  */
 import { escapeHTML, formatRange } from '../utils.js';
-import { contactLine } from './_shared.js';
+import { contactLine, skillItemHTML } from './_shared.js';
 
 export function renderLayout(resume) {
   const { personal, sections, settings } = resume;
@@ -30,7 +30,7 @@ function renderSection(section, settings) {
 
   const items = entries.map(entry => {
     if (section.type === 'skills') {
-      return `<li class="skill-item">${escapeHTML(entry.title)}</li>`;
+      return skillItemHTML(entry);
     }
     if (section.type === 'profile') {
       return `<div class="entry">${entry.description || ''}</div>`;

@@ -916,3 +916,8 @@ input[type="checkbox"] { width: auto; height: auto; padding: 0; }
 .editor-sidebar::-webkit-scrollbar-track,
 .preview-scroll::-webkit-scrollbar-track,
 .ats-panel::-webkit-scrollbar-track { background: transparent; }
+/* ---------- Grouped skills (editor) ---------- */
+.skill-group-card .skill-cat-input { font-weight: 600; }
+.skill-group-body { padding: 0 10px 10px 34px; }
+.skill-add-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.skill-add-row .add-entry { width: 100%; }

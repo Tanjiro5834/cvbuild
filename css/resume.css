@@ -112,3 +112,6 @@
   /* Remove link styling artifacts */
   .resume a { color: inherit !important; text-decoration: none !important; }
 }
+/* Grouped skills: one category per line */
+.resume .skill-group { flex-basis: 100%; }
+.resume .skill-cat { font-weight: 700; }

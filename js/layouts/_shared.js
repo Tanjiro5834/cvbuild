@@ -34,3 +34,15 @@ export function renderEntryBody(entry) {
 export function renderSectionHeading(title) {
   return `<h2 class="section-title">${escapeHTML(title)}</h2>`;
 }
+/**
+ * Skill row. Entries with a `category` key are groups ("Backend: Java, Spring Boot"),
+ * legacy entries without it are single inline skills.
+ */
+export function skillItemHTML(entry) {
+  if (!entry.title && !entry.category) return '';
+  if ('category' in entry) {
+    const cat = entry.category ? `<span class="skill-cat">${escapeHTML(entry.category)}:</span> ` : '';
+    return `<li class="skill-group">${cat}${escapeHTML(entry.title)}</li>`;
+  }
+  return `<li class="skill-item">${escapeHTML(entry.title)}</li>`;
+}
