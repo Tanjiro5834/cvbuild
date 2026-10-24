@@ -22,7 +22,8 @@ import { renderEditor } from "./editor/form.js";
 import { initDnD } from "./editor/dnd.js";
 import { LAYOUTS } from "./layouts/index.js";
 import { renderATSPanel, estimatePageCount } from "./ats-check.js";
-import { exportPDF, exportTXT, exportJSON, importJSONFile } from "./export.js";
+import { exportPDF, exportTXT, exportJSON, importJSONFile, buildFilename } from "./export.js";
+import { downloadPDF } from "./pdf.js";
 
 const app = document.getElementById("app");
 const toastsRoot = document.getElementById("toasts");
@@ -429,9 +430,20 @@ async function openEditor(id) {
     .addEventListener("click", () => redo());
   app
     .querySelector('[data-action="download-pdf"]')
-    .addEventListener("click", () => {
-      exportPDF(getCurrentResume());
-      toast("Opening print dialog…");
+    .addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      const resume = getCurrentResume();
+      btn.disabled = true;
+      try {
+        await downloadPDF(resume, buildFilename(resume));
+        toast("PDF downloaded", "success");
+      } catch (err) {
+        console.error(err);
+        toast("Direct download failed, opening print dialog…", "danger");
+        exportPDF(resume); // fallback
+      } finally {
+        btn.disabled = false;
+      }
     });
   app
     .querySelector('[data-action="export-txt"]')

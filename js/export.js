@@ -8,7 +8,20 @@ export function buildFilename(resume) {
   return `${name}_Resume`;
 }
 
+const PAGE_MARGINS = { narrow: '10mm', normal: '16mm', wide: '22mm' };
+
 export function exportPDF(resume) {
+  // Page size + margins go in @page so they repeat on every printed page
+  const { paper = 'A4', margins = 'normal' } = resume.settings || {};
+  let pageStyle = document.getElementById('print-page-style');
+  if (!pageStyle) {
+    pageStyle = document.createElement('style');
+    pageStyle.id = 'print-page-style';
+    document.head.appendChild(pageStyle);
+  }
+  pageStyle.textContent =
+    `@page { size: ${paper === 'Letter' ? 'letter' : 'A4'}; margin: ${PAGE_MARGINS[margins] || '16mm'}; }`;
+
   const original = document.title;
   document.title = buildFilename(resume);
   // Give the browser a tick to update the title
