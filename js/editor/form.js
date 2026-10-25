@@ -26,7 +26,7 @@ const ICONS = {
 /* ---------------- Fonts & layouts ---------------- */
 
 const FONT_GROUPS = [
-  { label: 'Sans-serif', fonts: ['Inter','Roboto','Open Sans','Lato', 'Nunio', 'Source Sans 3','Arial'] },
+  { label: 'Sans-serif', fonts: ['Inter','Roboto','Open Sans','Lato', 'Nunito', 'Source Sans 3','Arial'] },
   { label: 'Serif', fonts: ['Merriweather','EB Garamond','Source Serif 4','Lora','Georgia'] },
   { label: 'Monospace', fonts: ['JetBrains Mono','IBM Plex Mono','Roboto Mono','Source Code Pro','Courier Prime'] },
 ];
