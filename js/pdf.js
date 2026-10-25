@@ -155,6 +155,7 @@ export async function downloadPDF(resume, filename) {
   const para = (text, { size = BASE, style = 'normal', x = M, width = CW, align = 'left', color } = {}) => {
     set(size, style, color);
     const lines = doc.splitTextToSize(text, width);
+    if (lines.length * lineH(size) <= H - 2 * M) ensure(lines.length * lineH(size)); // keep together
     for (const ln of lines) {
       ensure(lineH(size));
       const tx = align === 'center' ? W / 2 : x;
@@ -194,6 +195,7 @@ export async function downloadPDF(resume, filename) {
     const indent = 14;
     set(BASE, 'normal');
     const lines = doc.splitTextToSize(text, CW - indent);
+    if (lines.length * lineH(BASE) <= H - 2 * M) ensure(lines.length * lineH(BASE)); // keep bullet together
     lines.forEach((ln, i) => {
       ensure(lineH(BASE));
       if (i === 0) doc.text(n ? `${n}.` : '•', M + 3, y + BASE);
@@ -250,7 +252,7 @@ export async function downloadPDF(resume, filename) {
   const heading = (title) => {
     const size = BASE * 1.05;
     ensure(lineH(size) + 6 + lineH(BASE) * 2);   // keep heading with first lines
-    y += GAP * 0.6;
+    if (y > M) y += GAP * 0.6;                    // no extra gap at the top of a page
     const label = s.headingStyle === 'uppercase' ? title.toUpperCase() : title;
     set(size, 'bold', ACCENT);
     doc.text(label, M, y + size);

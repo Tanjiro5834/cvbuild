@@ -922,3 +922,17 @@ input[type="checkbox"] { width: auto; height: auto; padding: 0; }
 .skill-group-body { padding: 0 10px 10px 34px; }
 .skill-add-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .skill-add-row .add-entry { width: 100%; }
+
+/* ---------- Paginated preview (js/paginate.js) ---------- */
+.preview-page { position: relative; }
+.preview-page.paged {
+  min-height: 0;
+  box-shadow: none;
+  border-radius: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    #fff 0, #fff var(--page-h),
+    transparent var(--page-h), transparent calc(var(--page-h) + var(--page-gap))
+  );
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18));
+}

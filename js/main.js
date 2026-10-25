@@ -24,6 +24,7 @@ import { LAYOUTS } from "./layouts/index.js";
 import { renderATSPanel, estimatePageCount } from "./ats-check.js";
 import { exportPDF, exportTXT, exportJSON, importJSONFile, buildFilename } from "./export.js";
 import { downloadPDF } from "./pdf.js";
+import { paginate } from "./paginate.js";
 
 const app = document.getElementById("app");
 const toastsRoot = document.getElementById("toasts");
@@ -530,6 +531,9 @@ async function openEditor(id) {
     );
     previewEl.style.setProperty("--accent", r.settings.accent);
     previewEl.innerHTML = layout.render(r);
+    paginate(previewEl);
+    // Re-paginate once web fonts finish loading (metrics change line wraps)
+    document.fonts?.ready.then(() => { paginate(previewEl); scalePreview(); });
     updatePrintPage(r.settings);
     updateUndoButtons();
     updateATS();

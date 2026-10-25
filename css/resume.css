@@ -113,6 +113,10 @@
   .resume .resume-section { break-inside: avoid; page-break-inside: avoid; }
   .resume .section-title { break-after: avoid; page-break-after: avoid; }
 
+  /* Undo on-screen pagination (paginate.js) */
+  .preview-page.paged { background: #fff !important; filter: none !important; height: auto !important; }
+  .preview-page [data-pushed] { margin-top: 0 !important; }
+
   /* Remove link styling artifacts */
   .resume a { color: inherit !important; text-decoration: none !important; }
 }
