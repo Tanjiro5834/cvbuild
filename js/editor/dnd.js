@@ -8,13 +8,15 @@
 
 let dragState = null;
 
+const dragId = (el) => el.dataset.dragId || el.dataset.entryId;
+
 export function initDnD(container, onReorder) {
   container.addEventListener('dragstart', (e) => {
     const handle = e.target.closest('[draggable="true"][data-drag-type]');
     if (!handle) return;
     dragState = {
       type: handle.dataset.dragType,
-      id: handle.dataset.dragId,
+      id: dragId(handle),
       parent: handle.dataset.dragParent || null,
     };
     e.dataTransfer.effectAllowed = 'move';
@@ -34,7 +36,7 @@ export function initDnD(container, onReorder) {
     const target = e.target.closest('[data-drag-type]');
     if (!target) return;
     if (target.dataset.dragType !== dragState.type) return;
-    if (target.dataset.dragId === dragState.id) return;
+    if (dragId(target) === dragState.id) return; 
     if (dragState.type === 'entry' && target.dataset.dragParent !== dragState.parent) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -55,7 +57,7 @@ export function initDnD(container, onReorder) {
       type: dragState.type,
       id: dragState.id,
       parent: dragState.parent,
-      targetId: target.dataset.dragId,
+      targetId: dragId(target),
     });
   });
 }
